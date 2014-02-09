@@ -44,5 +44,11 @@ fact bizLogic {
           s in Convenience.shops else
           s in NotConvenience.shops
 }
+// 緯度経度データはなるべく散らばってほしい
+fact bias {
+  #Shop = #(Shop.lat)
+  #Shop = #(Shop.lon)
+  disj[Shop.lat.val, Shop.lon.val, Zero.val]
+}
 
 run {} for 4 Int, 4 Place, 4 Latitude, 4 Longitude
