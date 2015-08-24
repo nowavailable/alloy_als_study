@@ -2,10 +2,10 @@ sig UserProfile {
   portrait: disj one Photo
 }
 sig Album {
-  photos: disj set Photo
-} {
+  photos: disj some Photo
+} /*{
   #photos > 0
-}
+}*/
 
 sig Photo { 
   photoable_type: one PR_PhotoableTypeField
