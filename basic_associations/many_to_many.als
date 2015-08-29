@@ -1,13 +1,13 @@
 module many_to_many
 sig Movie {
   actors: set Actor,
-  mv_act: set MoviesActors
+  mv_act: disj set MoviesActors
 } {
   actors = mv_act.actor // ショートカット
 }
 sig Actor {
   movies: set Movie,
-  act_mv: set MoviesActors
+  act_mv: disj set MoviesActors
 } { 
   movies = act_mv.movie // ショートカット
 }
