@@ -1,6 +1,6 @@
 module many_to_many
 sig Movie {
-  actors: set Actor,
+  //actors: set Actor,
   mv_act: set MoviesActors
 } {
   actors = mv_act.actor // ショートカット
@@ -20,6 +20,6 @@ fact {
   Movie <: mv_act = ~(MoviesActors <: movie)
   Actor <: act_mv = ~(MoviesActors <: actor)
   // 中間テーブルが作る関連は、互いに素。つまりactor と movie の複合ユニーク制約と同等。
-  all disj ms, ms': MoviesActors | ms.(movie + actor) != ms'.(movie + actor)
+  all disj ms, ms': MoviesActors | ms.(MoviesActors<:movie + MoviesActors<:actor) != ms'.(MoviesActors<:movie + MoviesActors<:actor)
 }
 run {}
