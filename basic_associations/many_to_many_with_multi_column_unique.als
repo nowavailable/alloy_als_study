@@ -19,7 +19,7 @@ fact {
   // 相互的な参照関係
   Movie <: mv_act = ~(MoviesActors <: movie)
   Actor <: act_mv = ~(MoviesActors <: actor)
-  // 中間テーブルが作る関連は、互いに素。
+  // 中間テーブルが作る関連は、互いに素。つまりactor と movie の複合ユニーク制約と同等。
   all disj ms, ms': MoviesActors | ms.(movie + actor) != ms'.(movie + actor)
 }
 run {}
