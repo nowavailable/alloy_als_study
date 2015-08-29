@@ -1,6 +1,6 @@
 module one_to_many
 sig Dad {
-  son: disj set Son
+  son: set Son
 }
 sig Son {
   dad: one Dad
