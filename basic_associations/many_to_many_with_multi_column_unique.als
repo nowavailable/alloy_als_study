@@ -1,15 +1,15 @@
 module many_to_many
 sig Movie {
-  //actors: set Actor,
+  actors: set Actor,    // rdb-orientedな観点からは、省略可。
   mv_act: set MoviesActors
 } {
-  actors = mv_act.actor // ショートカット
+  actors = mv_act.actor // ショートカット。rdb-orientedな観点からは、省略可。
 }
 sig Actor {
-  movies: set Movie,
+  movies: set Movie,    // rdb-orientedな観点からは、省略可。
   act_mv: set MoviesActors
 } { 
-  movies = act_mv.movie // ショートカット
+  movies = act_mv.movie // ショートカット。rdb-orientedな観点からは、省略可。
 }
 sig MoviesActors {
   actor: one Actor,
