@@ -24,23 +24,11 @@ sig InputForm {
 fact {
   all sess:Session | sess in Visitor.signIn
 }
-
-/*
-*/
 fact {
-  // ログイン済み者と未ログイン/ログイン失敗者がいる。
-  all vis:Visitor |
-    vis.signIn.whose in currentVisitor.vis.targetUser
+  // サインインして記録されれるUserは、InputFormに入力されたUser
+  all vis:Visitor | 
+    vis.signIn != none iff
+      vis.signIn.whose = (currentVisitor.vis).targetUser
 }
 
-fact {
-  // ログイン済み者と未ログイン/ログイン失敗者がいる。
-  all f:InputForm |
-    f.targetUser.(f.input) = f.targetUser.password 
-      iff f.currentVisitor.signIn in Session
-    ||
-    f.targetUser.(f.input) != f.targetUser.password 
-      iff f.currentVisitor.signIn = none
-}
-
-run {}
+run {} for 6
