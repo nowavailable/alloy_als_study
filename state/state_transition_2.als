@@ -19,27 +19,23 @@ fact {
   no s:Success | s in State.previous 
   }
 fact {
-  all s:State | 
+  all s:(State - Idle) | 
     let transitive = (^previous)[s] | // あるStateから、推移的に到達可能なprevious
-
-      s not in Idle implies 
-        /**
-         * あるStateが、previousとして指すStateは、
-         * 他のStateからはpreviousとして指されていないこと
-         */
-        s = previous.(s.previous)
- 
-        && 
-        /**
-         * 遷移の起点は必ずIdle。なので
-         * あるStateから、推移的に到達可能なpreviousには、
-         * 必ずIdleStateが含まれていないとおかしい.
-         * （Idleのpreviousは無いので、Idleがtransitiveに含まれていれば、
-         *  それは必ず起点であるといってよい）
-         */
-        transitive - Idle != transitive 
+      /**
+       * あるStateが、previousとして指すStateは、
+       * 他のStateからはpreviousとして指されていないこと。反射的関係。
+       */
+      s = previous.(s.previous)
+      /**
+       * 遷移の起点は必ずIdle。なので
+       * あるStateから、推移的に到達可能なpreviousには、
+       * 必ずIdleStateが含まれていないとおかしい.
+       * （Idleのpreviousは無いので、Idleがtransitiveに含まれていれば、
+       *  それは必ず起点であるといってよい）
+       */
+      && 
+      transitive - Idle != transitive 
   }
-
 /*------------------------------------------------------------*/
 enum Password {correct, incorrect}
 some sig UserAccount {
@@ -68,7 +64,7 @@ fact {
   all sess:Session | sess in Visitor.signIn
  }
 fact {
-  // サインインして記録されれるUserは、InputFormに入力されたUser
+  // サインインして記録されるUserは、InputFormに入力されたUser
   all vis:Visitor | 
     vis.signIn != none implies
       vis.signIn.whose = (currentVisitor.vis).targetUser
@@ -76,7 +72,7 @@ fact {
 /*------------------------------------------------------------*/
 fact {
   Visitor <: state = ~(State <: visitor)
- }
+  }
 fact {
   // SuccessならSessionがあり、そうでなければSessionは無い。
   (all s:State | s in Success iff s.visitor.signIn != none) 
