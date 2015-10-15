@@ -56,7 +56,8 @@ fact {
 fact stateIgniter {
   all s:StateExt | 
     s.igniter != none implies 
-      igniter[s] = ~currentVisitor[s.visitor]
+      // 各状態の発火者（存在すれば）は、その状態に属するVisitorが操作したイベント。
+      igniter[s] = (~(InputForm<:currentVisitor))[s.visitor]
 }
 /*------------------------------------------------------------
  * 状態遷移と値オブジェクトとを組み合わせたときの制約
