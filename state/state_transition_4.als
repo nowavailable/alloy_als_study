@@ -18,7 +18,8 @@ sig Visitor extends ValueObj {
 }
 sig InputForm {
   /* 
-   * Formをモデリングしているが、ログインという行為、即ちイベントであるともいえる？
+   * Formをモデリングしているが、
+   * ログインという行為、即ちイベントであるともいえる？
    */
   currentVisitor: disj one Visitor,
   targetUser: one UserAccount,
@@ -63,4 +64,4 @@ fact businessLogic {
   (all i:Idle | let v = i.visitor | ~(currentVisitor :> v)[v] = none)
 }
 
-run {} for 8
+run {} for 6

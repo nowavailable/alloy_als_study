@@ -99,7 +99,7 @@ fact transientBase {
   }
 fact identified {
   /** 
-   * 終端として参照されていないStateを起点にして 
+   * 終端、つまり、previousとして参照されていないStateを起点にして 
    * そこから辿れるすべての状態に属するVisitorのidentityは同一。
    */
   let terminated = State - previous[State] |
