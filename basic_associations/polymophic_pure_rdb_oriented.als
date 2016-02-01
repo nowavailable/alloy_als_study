@@ -13,7 +13,7 @@ sig Photo {
 }
 
 abstract sig PR_PhotoableTypeField {
-  photos_identify: one Photo
+  --photos_identify: one Photo
 }
 sig UserProfile_Photoable extends PR_PhotoableTypeField { 
   user_profile: disj one UserProfile
@@ -23,7 +23,9 @@ sig Album_Photoable extends PR_PhotoableTypeField {
 }
 
 fact {
-  photoable_type = ~photos_identify
+  --photoable_type = ~photos_identify
+  all photo:Photo | photo = (Photo<:photoable_type).(photo.(Photo<:photoable_type))
+  Photo.photoable_type = PR_PhotoableTypeField
   portrait = ~(photoable_type.user_profile)
   photos = ~(photoable_type.album)
 }

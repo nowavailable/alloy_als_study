@@ -14,7 +14,7 @@ sig Photo {
 }
 
 abstract sig PhotoableTypeField {
-  parent: one Photo
+  --parent: one Photo
 }
 sig UserProfile_Photoable extends PhotoableTypeField { 
   user_profile: disj one UserProfile
@@ -27,9 +27,12 @@ sig Photoable in Kind {}
 
 fact {
   // 相互的関係
-  Photo <: photoable_type = ~(PhotoableTypeField <: parent)
   UserProfile <: photo = ~(Photo <: photoable_type.user_profile)
   Album <: photos = ~(Photo <: photoable_type.album)
+
+  --Photo <: photoable_type = ~(PhotoableTypeField <: parent)
+  all p:Photo | p = (Photo<:photoable_type).(p.(Photo<:photoable_type)) 
+  Photo.photoable_type = PhotoableTypeField
 
   Photo <: photoable in ~(UserProfile <: photo) + ~(Album <: photos)
 }
