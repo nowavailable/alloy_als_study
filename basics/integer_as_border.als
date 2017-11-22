@@ -2,7 +2,7 @@
   石の上にも三年。
 */
 abstract sig Border { val: one Int }
-one sig BorderThree extends Border {} { val = 4 } // 0〜7
+one sig BorderThree extends Border {} { val = 3 } // 0〜7
 one sig BorderZero extends Border {} { val = 0 }
 
 abstract sig Year { val: one Int }
