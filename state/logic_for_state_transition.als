@@ -27,7 +27,6 @@ fact {
 -- loto_num の値が一番大きかったParticipantに、
 -- prize_num、つまり賞品が与えられている。 
 --------------------------------------------------------------
-
 -- 事前条件
 pred BeforeLoto {
   all participant:Participant |
@@ -67,18 +66,18 @@ pred eternalUnique[p:Participant,p':Participant] {
  そのmaxであるloto_numを返す。
 */
 fun win_num : Int{
-  ~((~(Participant<:loto_num).Participant)<:val).Boundary.max
+  Boundary.(Participant.(Participant<:loto_num)<:val).max
 }
 -- 事後条件
 pred AfterLoto {
   /** 事後状態Atomには必ず、対になる事前状態のAtomが存在すること。*/
-  ~(
+  Participant.(
     (Participant<:meta_state & Participant->after).State<:meta_identifier
-  ).Participant  // 抽選後参加者 とそのID、から、IDだけを取り出す
+  )  // 抽選後参加者 とそのID、から、IDだけを取り出す
   in
-  ~(
+  Participant.(
     (Participant<:meta_state & Participant->before).State<:meta_identifier
-  ).Participant  // 抽選前参加者 とそのID、から、IDだけを取り出す
+  )  // 抽選前参加者 とそのID、から、IDだけを取り出す
   && 
   /** loto_num がmaxの者だけが prize_num を持っていること。*/
   let winner = loto_num:>(Boundary<:val & Boundary->win_num).Int |
