@@ -1,14 +1,6 @@
 open hana9
 module hana9_order
 /*-------------------------------------------------------------------------------------------*/
--- quantity系としきい値系はなるべく小さく。
-fact {
-  all r: RuleForShip | lte[r.interval_day.val, 4] 
-    && lte[r.quantity_limit.val, 6] && lte[r.quantity_available.val, 6]
-  all s: Shop | lte[s.delivery_limit_per_day.val, 6]
-  all d: OrderDetail | lte[d.quantity.val, 8] 
-  all r: RequestedDelivery | lte[r.quantity.val, 6]
-}
 -- ビジネスロジック上自明な
 fact {
   -- 未決の注文明細の日付は、本日以降であること。
@@ -50,14 +42,10 @@ fact {
     ) && (
       -- また、ひとつの注文明細に複数の配達指示がある場合、
       -- そのどちらかはRuleForShipのリミットに達している
-      b_gt[#(d<:requested_deliveries), 1] iff
+      gt[#(d<:requested_deliveries), 1] iff
         gt[d.quantity.val, 1]
-        && (some req: d.requested_deliveries |
-          eq[req.quantity.val, (QUANTITY_LIMIT_BY_REQ[req].val)])
-        && (all req: d.requested_deliveries |
-          lt[req.quantity.val, d.quantity.val])
-        // ↓このsumが効いていれば、上の二つの条件は不要なのだが、
-        // 　このようにすこしづつ絞り込まないと、sumが正しく動作しない？
+        && (let req = d.requested_deliveries |
+          gte[#(req.quantity.val:>(QUANTITY_LIMIT_BY_REQ[req].val)), 1])
         -- 配達指示の個数が注文明細の個数合計と合っていること
         && eq[d.quantity.val, sum[d.requested_deliveries.quantity.val]]
     )
@@ -80,48 +68,12 @@ fact {
       -- TODO: 日毎配達可能数の変更もありえるけどそれは？
       eq[#((details<:expected_date.val):>theDay.val), shop.delivery_limit_per_day.val]
         -- 配達実績とship_limitsの数が一致している。
-        && b_lte[#((details<:expected_date.val):>theDay.val), #((limit<:expected_date.val):>theDay.val)]
-}
-/*-------------------------------------------------------------------------------------------*/
--- その日は既にふさがっている
-pred theDayIsFull(date: Boundary, shop: Shop) {
-  let theDay = (Boundary<:val:>(date.val)).Int,
-    limit = shop.ship_limits,
-    details = shop.requested_deliveries.order_detail |
-  not eq[#((limit<:expected_date.val):>theDay.val), 0]
-    -- さらに配達実績数が日毎配達可能数と矛盾していないか見る。
-    // 厳密にチェックするならね
-    //&& b_gte[#((details<:expected_date.val):>theDay.val), shop.delivery_limit_per_day.val]
-}
--- 受注候補店舗のうち一軒でも、明細すべてに対して、全条件をクリアできていたら
-pred canRecieveDetailAll(o: Order, candidate_shop: Shop) {
-  all detail: o.order_details |
-    let rule = (candidate_shop.rule_for_ships<:merchandise:>detail.merchandise).Merchandise |
-    (rule != none)
-    -- 明細完受注可
-    && gte[QUANTITY_LIMIT[detail.expected_date, rule].val, detail.quantity.val]
-    && candidate_shop in CAN_DELIVERY_SHOPS[detail]
-    // candidate_shopは、"Orderで"束ねた群なのでさらに絞る
-    && candidate_shop in detail.merchandise.rule_for_ships.shop
-    && not theDayIsFull[detail.expected_date, candidate_shop]
-}
--- 明細完受注NG店舗在り
-pred canRecieveDetailPartly(d: OrderDetail) {
-  (some rule: d.merchandise.rule_for_ships |
-    not gte[QUANTITY_LIMIT[d.expected_date, rule].val, d.quantity.val]
-    and rule.shop in CAN_DELIVERY_SHOPS[d]
-    and not theDayIsFull[d.expected_date, rule.shop]
-  ) //and (
-    //some rule: d.merchandise.rule_for_ships |
-    //  gte[QUANTITY_LIMIT[d.expected_date, rule].val, d.quantity.val]
-    //  and rule.shop not in CAN_DELIVERY_SHOPS[d]
-    //  and not theDayIsFull[d.expected_date, rule.shop]
-  //)
+        && lte[#((details<:expected_date.val):>theDay.val), #((limit<:expected_date.val):>theDay.val)]
 }
 /*-------------------------------------------------------------------------------------------*/
 -- 数量リミット
 fun QUANTITY_LIMIT(date: Boundary, rule: RuleForShip) : Boundary {
-  b_gte[date.val.minus[Now.val], rule.interval_day.val] implies
+  gte[date.val.minus[Now.val], rule.interval_day.val] implies
     rule.quantity_limit else rule.quantity_available
 }
 fun QUANTITY_LIMIT_BY_REQ (req: RequestedDelivery) : one Boundary {
@@ -132,9 +84,52 @@ fun QUANTITY_LIMIT_BY_REQ (req: RequestedDelivery) : one Boundary {
 fun CAN_DELIVERY_SHOPS (d: OrderDetail) : set Shop {
   CitiesShop.(((CitiesShop<:city:>d.city).City)<:shop)
 }
+-- その日は既にふさがっている
+pred theDayIsFull(date: Boundary, shop: Shop) {
+  let theDay = (Boundary<:val:>(date.val)).Int,
+    limit = shop.ship_limits,
+    details = shop.requested_deliveries.order_detail |
+  not eq[#((limit<:expected_date.val):>theDay.val), 0]
+    -- さらに配達実績数が日毎配達可能数と矛盾していないか見る。
+    // 厳密にチェックするならね
+    //&& gte[#((details<:expected_date.val):>theDay.val), shop.delivery_limit_per_day.val]
+}
+-- 受注候補店舗が、ある明細に対して、全条件をクリアできている
+pred canRecieveDetailComplete(o: Order, candidate_shop: Shop, detail: OrderDetail) {
+  let rule = (candidate_shop.rule_for_ships<:merchandise:>detail.merchandise).Merchandise |
+    (rule != none)
+    && gte[QUANTITY_LIMIT[detail.expected_date, rule].val, detail.quantity.val]
+    && candidate_shop in CAN_DELIVERY_SHOPS[detail]
+    // candidate_shopは、"Orderで"束ねた群なのでさらに絞る
+    && candidate_shop in detail.merchandise.rule_for_ships.shop
+    && not theDayIsFull[detail.expected_date, candidate_shop]
+}
+-- それができていない。しかし取り扱いはある。一度に出荷できる個数の都合でNGとなる。
+pred canNotRecieveDetailComplete(o: Order, candidate_shop: Shop, detail: OrderDetail) {
+  let rule = (candidate_shop.rule_for_ships<:merchandise:>detail.merchandise).Merchandise |
+    (rule != none)
+    && lt[QUANTITY_LIMIT[detail.expected_date, rule].val, detail.quantity.val]
+    && candidate_shop in CAN_DELIVERY_SHOPS[detail]
+    // candidate_shopは、"Orderで"束ねた群なのでさらに絞る
+    && candidate_shop in detail.merchandise.rule_for_ships.shop
+    && not theDayIsFull[detail.expected_date, candidate_shop]
+}
+-- 受注候補店舗が、明細すべてに対して、全条件をクリアできている
+pred canRecieveAllDetail(o: Order, candidate_shop: Shop) {
+  all detail: o.order_details |
+    canRecieveDetailComplete[o, candidate_shop, detail]
+}
 /*-------------------------------------------------------------------------------------------*/
 -- テスト上恣意的な
 fact {
+  -- quantity系としきい値系はなるべく小さく。
+  all r: RuleForShip |
+    pos[r.interval_day.val] && lte[r.interval_day.val, 4] 
+    && pos[r.quantity_limit.val] && lte[r.quantity_limit.val, 6] 
+    && pos[r.quantity_available.val] && lte[r.quantity_available.val, 6]
+  all s: Shop | pos[s.delivery_limit_per_day.val] && lte[s.delivery_limit_per_day.val, 6]
+  all d: OrderDetail | pos[d.quantity.val] && lte[d.quantity.val, 8] 
+  all r: RequestedDelivery | pos[r.quantity.val] && lte[r.quantity.val, 6]
   -- 出荷ルールの多様性
   all r,r': RuleForShip |
     r != r' => not eq[r.quantity_limit.val, r'.quantity_limit.val]
@@ -142,34 +137,11 @@ fact {
   -- マージンの多様性
   all s,s': Shop | s != s' => not eq[s.mergin.val, s'.mergin.val]
   -- 複数分担の配達指示
-  some d: OrderDetail | b_gt[#(d<:requested_deliveries), 1]
+  some d: OrderDetail | gt[#(d<:requested_deliveries), 1]
   -- 配達先のカーディナリティ
   gt[#(CitiesShop.city), 3]
   -- 配達指示はいくつか発されている。
   gte[#(RequestedDelivery), 3]
-  //-- ひとつの明細が複数の配達にわかれている例が
-  //some d: OrderDetail | gte[#d.requested_deliveries, 2]
+  -- ひとつの明細が複数の配達にわかれている例が
+  some d: OrderDetail | gte[#d.requested_deliveries, 2]
 }
--- 受注余力があって、まだ受注していない店舗がいくつかあること
-pred notYetDetailsAndShopsAll {
-  some o: Order | (o.order_details.requested_deliveries = none) 
-    //&& canRecieveDetailAll[o]
-    && (o.order_details.merchandise.rule_for_ships.shop != none)
-    && let candidates = o.order_details.merchandise.rule_for_ships.shop |
-      some candidate_shop: candidates |
-        canRecieveDetailAll[o, candidate_shop]
-}
-pred notYetDetailsAndShopsPartly {
-  some o: Order | (o.order_details.requested_deliveries = none) 
-    && (some d: o.order_details | canRecieveDetailPartly[d])
-}
-
-// run での sig の絞り込みは最小限に。また、
-// 全体のscope数と大きく差のあるsig絞り込みを設定すると、正しく動作しないことがある。
-// なおこのalsは alloy* (alloystar) での実行を前提としている。
-run {
-  notYetDetailsAndShopsAll
-  // notYetDetailsAndShopsPartly
-} for 9 but 5 City, 3 ShipLimit, // 4 Merchandise, 
-1..20 Int, 20 seq
-//5 Int, 15 seq
